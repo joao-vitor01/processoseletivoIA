@@ -16,11 +16,3 @@ print ("Exportando para TensorFlow Lite")
 caminho_exportado = model.export(format="tflite", imgsz = 640)
 
 print("Arquivo está pronto na raiz do programa.")
-
-
-# insira seu código aqui
-
-# Dica de estrutura (não é obrigatório seguir exatamente assim):
-#
-# model = YOLO("model.pt")
-# model.export(format="tflite", imgsz=...)

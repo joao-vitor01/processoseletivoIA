@@ -33,17 +33,3 @@ if caminho_pesos.exists():
     print("Sucesso! O arquivo 'model.pt' foi copiado para a raiz da pasta")
 else:
     print("Erro: O arquivo de pesos não foi encontrado")
-
-# insira seu código aqui
-
-# Dica de estrutura (não é obrigatório seguir exatamente assim):
-#
-# model = YOLO("yolo11n.pt")
-# results = model.train(
-#     data="dataset/data.yaml",
-#     epochs=...,
-#     imgsz=...,
-#     batch=...,
-#     device="cpu",
-# )
-# shutil.copy(results.save_dir / "weights" / "best.pt", "model.pt")
