@@ -21,7 +21,7 @@ print ("Iniciando o treinamento na CPU")
 results = model.train(
     data="dataset/data.yaml",
     epochs = 15,
-    imgsz = 416,
+    imgsz = 640,
     batch = 8,
     device = "cpu",
 )

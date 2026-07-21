@@ -130,39 +130,82 @@ projetos/3-deteccao-mascaras/
 
 ## 📝 Relatório do Candidato
 
-👤 **Nome Completo:**
+👤 **Nome Completo:** João Vitor Lopes Miranda
 
 ### 1️⃣ Resumo da Abordagem
 
-Descreva os hiperparâmetros de fine-tuning utilizados (épocas, tamanho de
-imagem, batch size) e quaisquer ajustes feitos para lidar com o desbalanceamento
-de classes, se houver.
+O treinamento foi focado na adaptação do framework ultraleve YOLO11n utilizando o dataset fornecido. Como o treinamento foi realizado inteiramente em CPU, a estratégia adotada focou em hiperparâmetros eficientes:
+
+- **Tamanho da Imagem (`imgsz`):** 640x640, garantindo o padrão do modelo base.
+- **Épocas:** 15 épocas, o suficiente para a rede estabilizar a perda de validação dado que já partimos de pesos pré-treinados.
+- **Batch Size:** 8, ajustado para não sobrecarregar a RAM/CPU durante o processo.
+- **Desbalanceamento:** A classe `mask_weared_incorrect` possui pouquíssimas amostras em relação a `with_mask` e `without_mask`. Manteve-se o viés original do dataset para observar o comportamento real da rede, resultando em menor confiança da bounding box exclusivamente na classe minoritária.
 
 ### 2️⃣ Bibliotecas Utilizadas
 
-Liste as principais bibliotecas utilizadas, preferencialmente com suas versões.
+O ambiente exigiu um controle rigoroso de dependências, especialmente para a exportação e inferência. As principais versões mapeadas durante o desenvolvimento foram:
+- `ultralytics == 8.4.102`
+- `torch == 2.12.1`
+- `torchvision == 0.27.1`
+- `litert-torch == 0.9.1`
+- `ai-edge-litert == 2.1.5`
 
 ### 3️⃣ Técnica de Otimização do Modelo
 
-Explique o processo de exportação para TFLite realizado em `optimize_model.py`.
+A otimização foi realizada através da conversão dos pesos nativos do PyTorch (`model.pt`) para o formato TensorFlow Lite (`.tflite`), utilizando a engine unificada do Google LiteRT.
+O comando `model.export(format="tflite", imgsz=640)` engatilha uma pipeline complexa *under-the-hood*:
+
+1. Os grafos do PyTorch foram inicialmente rebaixados para abstrações `FX`.
+2. Em seguida, foram convertidos para a representação intermediária `MLIR`.
+3. Finalmente, os módulos MLIR foram compilados para o binário `.tflite`.
+
+Para garantir que a arquitetura gerasse um modelo perfeitamente funcional (evitando falha de CI/CD) utilizou-se o Docker no processo inicial de validação local.
+
 
 ### 4️⃣ Resultados Obtidos
 
-Informe o mAP50 (e, se possível, o mAP50-95) obtido na validação, por classe se
-possível, e o tamanho dos arquivos `model.pt` e `model.tflite`.
+- **Tamanho do Arquivo Original (`model.pt`):** 5.2 MB
+- **Tamanho do Arquivo Otimizado (`model.tflite`):** 10.1 MB. O modelo TFLite gerado pela Ultralytics embute operações do XNNPACK e grafos adicionais para NMS (Non-Maximum Suppression), o que resulta em um artefato ligeiramente maior, porém altamente veloz na inferência.
+
+- **Desempenho de Validação por Classe:**
+
+| Classe | Imagens (class) | Instâncias (boxes) | Precision (P) | Recall (R) | mAP50 | mAP50-95 |
+| :--- | :---: | :---: | :---: | :---: | :---: | :---: |
+| **all (Geral)** | **170** | **726** | **0.784** | **0.693** | **0.728** | **0.503** |
+| `with_mask` | 149 | 593 | 0.913 | 0.946 | 0.970 | 0.673 |
+| `without_mask` | 57 | 114 | 0.752 | 0.711 | 0.767 | 0.498 |
+| `mask_weared_incorrect` | 15 | 19 | 0.688 | 0.421 | 0.446 | 0.340 |
+
+As classes `with_mask` e `without_mask` apresentaram excelente desempenho, com destaque para a precisão e mAP da classe correta. Conforme previsto devido ao desbalanceamento crônico do dataset, a classe minoritária `mask_weared_incorrect` sofreu uma queda expressiva no Recall (0.421) e no mAP (0.446), refletindo a dificuldade do modelo em generalizar padrões para amostras escasas.
 
 ### 5️⃣ Comentários Adicionais (Opcional)
 
-Dificuldades encontradas, decisões técnicas importantes, limitações do modelo
-(ex: desempenho na classe minoritária), aprendizados durante o desafio.
+O maior desafio deste projeto não foi o treinamento do YOLO em si, mas a orquestração do ambiente de otimização e inferência em pipelines contínuos (GitHub Actions).
+Durante a exportação para `.tflite`, a Ultralytics realiza o download dinâmico do pacote `litert-torch`, o qual realiza um *downgrade* forçado do PyTorch (para a versão `2.12.1`), mas falha em realinhar o `torchvision` equivalente.
+Isso causa a quebra imediata do script `run_inference.py` por incompatibilidade no binário.
+**Solução:** Implementei um realinhamento no próprio `optimize_model.py` utilizando o comando `os.system("pip install litert-torch ai-edge-litert torchvision")` para garantir a sincronia e o pareamento das dependências (`torch 2.12.1` e `torchvision 0.27.1`). Isso permitiu que a integração contínua finalizasse com sucesso a inferência.
+
 
 ### 6️⃣ Exemplo de Inferência
 
-Cole a saída do terminal ao rodar `run_inference.py` (número de detecções por
-imagem), e comente brevemente sobre o que observou ao abrir as imagens
-anotadas em `runs/detect/inferencia_exemplos/predicoes/` — por exemplo, se as
-caixas ficaram bem localizadas, se houve confusão entre classes, ou se a
-classe minoritária (`mask_weared_incorrect`) teve desempenho visivelmente pior.
+**Saída do Terminal (`run_inference.py`):**
+```text
+Loading /workspaces/processoseletivoIA/projetos/3-deteccao-mascaras/model.tflite for LiteRT inference...
+INFO: Created TensorFlow Lite XNNPACK delegate for CPU.
+
+Imagem                               Detecções  Detalhes
+----------------------------------------------------------------------
+maksssksksss105.jpg                  9          [9x with_mask]
+maksssksksss107.jpg                  1          [1x with_mask]
+maksssksksss11.jpg                   23         [22x with_mask, 1x mask_weared_incorrect]
+maksssksksss113.jpg                  4          [3x with_mask, 1x without_mask]
+maksssksksss12.jpg                   13         [11x with_mask, 2x without_mask]
+----------------------------------------------------------------------
+TOTAL                                50
+```
+A execução do artefato de Edge ('model.tflite') demonstrou excelente robustez na prática. As imagens individuais geradas na pasta 'runs/detect/inferencia_exemplos/predicoes/' mostram que as bounding boxes foram delimitadas de maneira precisa e correta na grande maioria das amostras.
+
+Observou-se espeficamente na imagem 'maksssksksss11.jpg' (que conteve um alto volume de detecções simultâneas) que o modelo performou muito bem na marcação geral dos rostos,  conseguindo inclusive identificar a classe minoritária (mask_weared_incorrect). No geral, otimizado provou estar pronto para cenários reais de edge, mantendo alta fidelidade com os pesos originais do PyTorch.
 
 ---
 
