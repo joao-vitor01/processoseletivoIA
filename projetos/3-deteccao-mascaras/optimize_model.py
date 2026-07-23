@@ -1,4 +1,5 @@
 import os
+import shutil
 from ultralytics import YOLO
 
 # ---------------------------------------------------------------------------
@@ -20,20 +21,19 @@ def main():
     print("Iniciando processo de exportação e otimização")
 
     try:
-        caminho_exportado = model.export(format="tflite", imgsz=640)
+        caminho_exportado = model.export(format="tflite", imgsz=640, int8 =True, data="dataset/data.yaml")
+
         print(f"Sucesso na exportação TFLite: {caminho_exportado}")
-        
+
+        destino = "model.tflite"
+
+        if os.path.abspath(str(caminho_exportado))!= os.path.abspath(destino):
+            shutil.move(caminho_exportado, destino)
+            print(f"Arquivo com o nome esperado: {destino}")
+
     except Exception as e:
         print(f"\nFalha na exportação nativa: {e} ")
-        print("Tentando via ONNX")
-        try:
-            model.export(format="onnx", imgsz=640)
-        except Exception as e_onnx:
-            print(f"Erro crítico na exportação: {e_onnx}")
-            raise e_onnx
-            
-    finally:
-        os.system("pip install litert-torch ai-edge-litert torchvision")
+        raise
 
 if __name__ == "__main__":
     main()

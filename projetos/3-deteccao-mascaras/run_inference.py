@@ -51,6 +51,8 @@ def main():
         result = model.predict(
             source=path,
             imgsz=640,
+            conf=0.35,
+            iou=0.5,
             save=True,
             project=os.path.join(script_dir, "runs", "detect"),
             name="inferencia_exemplos/predicoes",
